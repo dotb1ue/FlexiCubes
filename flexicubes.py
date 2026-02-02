@@ -14,11 +14,45 @@
 # limitations under the License.
 import torch
 from .tables import *
-from kaolin.utils.testing import check_tensor
 
 __all__ = [
     'FlexiCubes'
 ]
+
+
+def _check_tensor(tensor, shape=None, dtype=None, device=None, throw=True):
+    """Check if :class:`torch.Tensor` is valid given set of criteria.
+
+    Args:
+        tensor (torch.Tensor): the tensor to be tested.
+        shape (list or tuple of int, optional): the expected shape,
+            if a dimension is set at ``None`` then it's not verified.
+        dtype (torch.dtype, optional): the expected dtype.
+        device (torch.device, optional): the expected device.
+        throw (bool): if true (default), will throw if checks fail
+
+    Return:
+        (bool) True if checks pass
+    """
+    if shape is not None:
+        if len(shape) != tensor.ndim:
+            if throw:
+                raise ValueError(f"tensor have {tensor.ndim} ndim, should have {len(shape)}")
+            return False
+        for i, dim in enumerate(shape):
+            if dim is not None and tensor.shape[i] != dim:
+                if throw:
+                    raise ValueError(f"tensor shape is {tensor.shape}, should be {shape}")
+                return False
+    if dtype is not None and dtype != tensor.dtype:
+        if throw:
+            raise TypeError(f"tensor dtype is {tensor.dtype}, should be {dtype}")
+        return False
+    if device is not None and device != tensor.device.type:
+        if throw:
+            raise TypeError(f"tensor device is {tensor.device.type}, should be {device}")
+        return False
+    return True
 
 
 class FlexiCubes:
@@ -56,27 +90,27 @@ class FlexiCubes:
     def __call__(self, voxelgrid_vertices, scalar_field, cube_idx, resolution, qef_reg_scale=1e-3,
                  weight_scale=0.99, beta=None, alpha=None, gamma_f=None, voxelgrid_colors=None, training=False):
         assert torch.is_tensor(voxelgrid_vertices) and \
-            check_tensor(voxelgrid_vertices, (None, 3), throw=False), \
+            _check_tensor(voxelgrid_vertices, (None, 3), throw=False), \
             "'voxelgrid_vertices' should be a tensor of shape (num_vertices, 3)"
         num_vertices = voxelgrid_vertices.shape[0]
         assert torch.is_tensor(scalar_field) and \
-            check_tensor(scalar_field, (num_vertices,), throw=False), \
+            _check_tensor(scalar_field, (num_vertices,), throw=False), \
             "'scalar_field' should be a tensor of shape (num_vertices,)"
         assert torch.is_tensor(cube_idx) and \
-            check_tensor(cube_idx, (None, 8), throw=False), \
+            _check_tensor(cube_idx, (None, 8), throw=False), \
             "'cube_idx' should be a tensor of shape (num_cubes, 8)"
         num_cubes = cube_idx.shape[0]
         assert beta is None or (
             torch.is_tensor(beta) and
-            check_tensor(beta, (num_cubes, 12), throw=False)
+            _check_tensor(beta, (num_cubes, 12), throw=False)
         ), "'beta' should be a tensor of shape (num_cubes, 12)"
         assert alpha is None or (
             torch.is_tensor(alpha) and
-            check_tensor(alpha, (num_cubes, 8), throw=False)
+            _check_tensor(alpha, (num_cubes, 8), throw=False)
         ), "'alpha' should be a tensor of shape (num_cubes, 8)"
         assert gamma_f is None or (
             torch.is_tensor(gamma_f) and
-            check_tensor(gamma_f, (num_cubes,), throw=False)
+            _check_tensor(gamma_f, (num_cubes,), throw=False)
         ), "'gamma_f' should be a tensor of shape (num_cubes,)"
 
         surf_cubes, occ_fx8 = self._identify_surf_cubes(scalar_field, cube_idx)
